@@ -2,3 +2,4 @@ __pycache__
 .env
 app.log
 venv
+PID_FILE
