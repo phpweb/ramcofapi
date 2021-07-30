@@ -15,7 +15,8 @@ def read_root():
     return {"Hello": "World"}
 
 
-async def place_order(signal: models.Signal, settings: Settings, background_tasks: BackgroundTasks):
+async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
+    settings = get_settings()
     bn = bn_client.BinanceClientAsync(api_key=settings.api_key, secret_key=settings.api_secret)
     pair = signal.ticker_pair.upper()
     # if signal.side.upper() == 'SELL':
@@ -36,6 +37,8 @@ async def place_order(signal: models.Signal, settings: Settings, background_task
         quantity = utils.calculate_quantity(balance, price, symbol_info['quantity_step_size'])
 
     if signal.side.upper() == 'SELL':
+        stop_loss_order_id = redis_client.get_from_cache(f'{pair}_stop_loss_orderId')
+        await bn.cancel_order(pair, stop_loss_order_id)
         quantity = utils.calculate_sell_quantity(balance, symbol_info['quantity_step_size'])
 
     if quantity:
@@ -53,7 +56,7 @@ async def place_order(signal: models.Signal, settings: Settings, background_task
                 await asyncio.sleep(1)
                 cancel_order = await bn.cancel_order(pair, order['orderId'])
                 if cancel_order is not None:
-                    await place_order(signal, settings, background_tasks)
+                    await place_order(signal, background_tasks)
                     return
             if signal.side.upper() == 'BUY':
                 placed_order = models.PlacedOrder(
@@ -65,7 +68,7 @@ async def place_order(signal: models.Signal, settings: Settings, background_task
                 )
                 # redis_client.set_to_cache('placed_order', placed_order.json())
                 # background_tasks.add_task(task_list, placed_order)
-                background_tasks.add_task(place_order_limit_maker, signal.ticker_pair.upper(), order['price'],
+                background_tasks.add_task(place_stop_loss_order, signal.ticker_pair.upper(), order['price'],
                                           order['origQty'])
             print(order)
         # print(f'price = {price} balance = {balance}')
@@ -84,12 +87,9 @@ async def create_item(signal: models.Signal, background_tasks: BackgroundTasks):
     settings = get_settings()
     if signal.passphrase != settings.hook_secret:
         return {'no_neo': 'no way'}
-    # background_tasks.add_task(place_order, signal, settings)
-    # return await place_order(signal, settings, background_tasks)
-    return {'dont_buy': True}
-
-    # background_tasks.add_task(task_list, signal.ticker_pair)
-    # return {"message": "Notification sent in the background"}
+    background_tasks.add_task(place_order, signal, background_tasks)
+    return {'order': 'has been placed'}
+    # return {'dont_buy': True}
 
 
 async def get_symbol_info(bn, pair):
@@ -124,3 +124,19 @@ async def place_order_limit_maker(symbol, bought_price, quantity):
     print(order_limit_maker)
     redis_client.set_to_cache(f'{symbol}_order_limit_maker_orderId', order_limit_maker['orderId'])
     return order_limit_maker
+
+
+async def place_stop_loss_order(symbol, bought_price, quantity):
+    settings = get_settings()
+    bn = bn_client.BinanceClientAsync(api_key=settings.api_key, secret_key=settings.api_secret)
+    symbol_info_from_redis = redis_client.get_from_cache(f'symbol_info_{symbol}')
+    symbol_info = json.loads(symbol_info_from_redis)
+    quantity = utils.calculate_sell_quantity(quantity, symbol_info['quantity_step_size'])
+    price = float(1 - 0.002) * float(bought_price)
+    price = "{:0.0{}f}".format(price, symbol_info['price_tick_size'])
+    stop_price = price
+    stop_loss_limit = await bn.order_stop_loss_limit(symbol, 'SELL', quantity, stop_price, price)
+    print('waht is stop loss order')
+    print(stop_loss_limit)
+    redis_client.set_to_cache(f'{symbol}_stop_loss_orderId', stop_loss_limit['orderId'])
+    return stop_loss_limit
