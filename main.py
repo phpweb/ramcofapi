@@ -80,8 +80,10 @@ async def place_order(signal: models.Signal, settings: Settings, background_task
 
 
 @app.post("/signal/")
-async def create_item(signal: models.Signal, background_tasks: BackgroundTasks,
-                      settings: Settings = Depends(get_settings)):
+async def create_item(signal: models.Signal, background_tasks: BackgroundTasks):
+    settings = get_settings()
+    if signal.passphrase != settings.hook_secret:
+        return {'no_neo': 'no way'}
     # background_tasks.add_task(place_order, signal, settings)
     # return await place_order(signal, settings, background_tasks)
     return {'dont_buy': True}
