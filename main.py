@@ -132,7 +132,7 @@ async def place_stop_loss_order(symbol, bought_price, quantity):
     symbol_info_from_redis = redis_client.get_from_cache(f'symbol_info_{symbol}')
     symbol_info = json.loads(symbol_info_from_redis)
     quantity = utils.calculate_sell_quantity(quantity, symbol_info['quantity_step_size'])
-    price = float(1 - 0.002) * float(bought_price)
+    price = float(1 - 0.004) * float(bought_price)
     price = "{:0.0{}f}".format(price, symbol_info['price_tick_size'])
     stop_price = price
     stop_loss_limit = await bn.order_stop_loss_limit(symbol, 'SELL', quantity, stop_price, price)
