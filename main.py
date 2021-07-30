@@ -53,7 +53,7 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
         if order_status is not None:
             if order_status['status'] != 'FILLED':
                 # Wait 2 seconds
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
                 cancel_order = await bn.cancel_order(pair, order['orderId'])
                 if cancel_order is not None:
                     await place_order(signal, background_tasks)
