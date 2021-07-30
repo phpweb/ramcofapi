@@ -2,7 +2,7 @@ aiohttp
 gunicorn
 pydantic
 fastapi
-uvicorn
+uvicorn[standard]
 redis
 python-dotenv
 websockets
