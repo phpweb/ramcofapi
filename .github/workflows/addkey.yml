@@ -1,0 +1,38 @@
+name: first-github-action
+on:
+  push:
+    branches: [ master ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install SSH Key
+        uses: shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          known_hosts: 'just-a-placeholder-so-we-dont-get-errors'
+      - name: Adding Known Hosts
+        run: ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+      - name: Listele dosyalari
+        run: ls -la
+      - name: Deploy with rsync
+        run: rsync -avz * ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DOCUMENT_ROOT }}
+      - name: Post deployment tasks
+        uses: fifsky/ssh-action@master
+        with:
+          command: |
+            cd ${{ secrets.DOCUMENT_ROOT }}
+            source venv/bin/activate
+            pip install -r requirements.txt
+            if test -f PID_FILE; then
+                kill $(cat PID_FILE)
+                rm PID_FILE
+            fi
+            gunicorn -c gunicorn.py main:app -w 4 -k uvicorn.workers.UvicornWorker --pid PID_FILE --log-file app.log &
+#            chmod +x ./post_deployment_actions.sh
+#            sh ./post_deployment_actions.sh test
+          host: ${{ secrets.SSH_HOST }}
+          user: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY}}
+          args: "-tt -vvv"
