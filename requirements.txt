@@ -5,3 +5,4 @@ fastapi
 uvicorn
 redis
 python-dotenv
+websockets
