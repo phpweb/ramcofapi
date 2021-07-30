@@ -19,7 +19,7 @@ load_dotenv()
 # ===============================================
 
 # bind - The server socket to bind
-bind = "127.0.0.1:8085"
+bind = "127.0.0.1:8086"
 
 # backlog - The maximum number of pending connections
 # Generally in range 64-2048
