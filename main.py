@@ -33,7 +33,7 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
     # For testing
     quantity = 0.0
     if signal.side.upper() == 'BUY':
-        # balance = 30.00
+        balance = 30.00
         quantity = utils.calculate_quantity(balance, price, symbol_info['quantity_step_size'])
 
     if signal.side.upper() == 'SELL':
