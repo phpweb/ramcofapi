@@ -6,3 +6,4 @@ uvicorn[standard]
 redis
 python-dotenv
 websockets
+requests
