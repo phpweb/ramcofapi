@@ -1,12 +1,14 @@
 import json
 import requests
 import asyncio
+from typing import Optional
 from fastapi import Depends, BackgroundTasks, FastAPI
 from config import Settings, get_settings
 import bn_client as bn_client
 import utils as utils
 import redis_client as redis_client
 import models as models
+import post_transactions as post_trans
 
 app = FastAPI()
 st_loss_profit_tasks = []
@@ -48,8 +50,7 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
 
     if float(quantity) > float(symbol_info['min_notional']):
         # If the side sell then cancel all open orders and st bg tasks
-
-        # background_tasks.add_task(cancel_st_tasks_and_open_orders, bn, pair)
+        await cancel_st_tasks_and_open_orders(pair)
         # order = await bn.create_order(pair, signal.side.upper(), 90, 'LIMIT', float(price))
         order = await bn.create_order(pair, signal.side.upper(), quantity, 'LIMIT', float(price))
         # Check the status if it is filled test
@@ -73,14 +74,15 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
                     status=order['status'],
                     symbol=pair
                 )
-                # redis_client.set_to_cache('placed_order', placed_order.json())
+                redis_client.set_to_cache('placed_order', placed_order.json())
                 # background_tasks.add_task(task_list, placed_order)
                 # background_tasks.add_task(place_stop_loss_order, signal.ticker_pair.upper(), order['price'],
                 #                          order['origQty'])
-                redis_client.delete_key(f'{signal.ticker_pair.upper()}_lslp')
+                # redis_client.delete_key(f'{signal.ticker_pair.upper()}_lslp')
                 # await task_list(order['price'], signal.ticker_pair.upper())
                 # background_tasks.add_task(stop_loss_update, order['price'], signal.ticker_pair.upper())
-                await stop_loss_update(order['price'], signal.ticker_pair.upper())
+                # await stop_loss_update(order['price'], signal.ticker_pair.upper())
+                await task_list(placed_order)
             print(order)
         # print(f'price = {price} balance = {balance}')
         return {
@@ -247,13 +249,22 @@ async def place_stop_loss_order_update(symbol, stop_price):
     return stop_loss_limit
 
 
-async def task_list(bought_price, symbol, cancel_task=None):
+async def task_list(data: Optional[models.PlacedOrder] = None, cancel_task=None):
     if len(st_loss_profit_tasks) > 0:
         for task in st_loss_profit_tasks:
             task.cancel()
     for i in range(1):
         if cancel_task is not True:
-            st_loss_profit_tasks.append(asyncio.create_task(stop_loss_update(bought_price, symbol)))
+            st_loss_profit_tasks.append(asyncio.create_task(post_trans.watch_live(data)))
     if len(st_loss_profit_tasks) > 0:
-        await asyncio.gather(*st_loss_profit_tasks, return_exceptions=True)
-        # await asyncio.gather(*st_loss_profit_tasks)
+        # await asyncio.gather(*st_loss_profit_tasks, return_exceptions=True)
+        await asyncio.gather(*st_loss_profit_tasks)
+
+
+async def cancel_st_tasks_and_open_orders(pair):
+    await task_list(cancel_task=True)
+    redis_client.delete_key(f'{pair}_stop_loss_orderId')
+    redis_client.delete_key(f'{pair}_lslp')
+    redis_client.delete_key('placed_order')
+    redis_client.delete_key(f'{pair}_order_limit_maker_orderId')
+    redis_client.delete_key(f'{pair}_second_stop_loss_order_id')
