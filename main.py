@@ -191,8 +191,8 @@ async def stop_loss_update(bought_price, symbol):
     new_stop_price = 0.0
     update_percent = 0.05
     if win_lose_percent > update_percent:
-        percent_var = 0.3
-        percent = float(1 - percent_var / 100)
+        # percent_var = 0.3
+        # percent = float(1 - percent_var / 100)
         redis_client.delete_key(f'{symbol}_lslp')
         new_stop_price = current_price
         stop_price = float(current_price) * float(percent)
