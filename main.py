@@ -47,6 +47,7 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
         if stop_loss_order_id is not None:
             stop_loss_cancel = await bn.cancel_order(pair, stop_loss_order_id)
             if stop_loss_cancel is not None:
+                redis_client.delete_key(f'{pair}_stop_loss_orderId')
                 quantity = utils.calculate_sell_quantity(balance, symbol_info['quantity_step_size'])
         if stop_loss_order_id is None:
             quantity = utils.calculate_sell_quantity(balance, symbol_info['quantity_step_size'])
