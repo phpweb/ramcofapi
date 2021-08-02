@@ -33,7 +33,9 @@ async def stop_loss_only(bought_price, symbol, current_price):
     percent_var = 0.2
     percent = float(1 - percent_var / 100)
     stop_price = float(bought_price) * float(percent)
-    await place_stop_loss_order_update(symbol, stop_price)
+    stop_loss_order_id = redis_client.get_from_cache(f'{symbol}_stop_loss_orderId')
+    if stop_loss_order_id is None:
+        await place_stop_loss_order_update(symbol, stop_price)
 
 
 async def stop_loss_update(bought_price, symbol, current_price):
