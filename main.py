@@ -48,7 +48,8 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
 
         quantity = utils.calculate_sell_quantity(balance, symbol_info['quantity_step_size'])
 
-    if float(quantity) > float(symbol_info['min_notional']):
+    # if float(quantity) > float(symbol_info['min_notional']):
+    if float(quantity) > 1.0:
         # If the side sell then cancel all open orders and st bg tasks
         await cancel_st_tasks_and_open_orders(pair)
         # order = await bn.create_order(pair, signal.side.upper(), 90, 'LIMIT', float(price))
@@ -101,7 +102,11 @@ async def create_item(signal: models.Signal, background_tasks: BackgroundTasks):
     if signal.passphrase != settings.hook_secret:
         return {'no_neo': 'no way'}
     background_tasks.add_task(place_order, signal, background_tasks)
-    return {'order': 'has been placed'}
+    # order = await place_order(signal, background_tasks)
+    return {
+        'order': 'has been placed',
+        # 'order_is': order
+    }
     # return {'dont_buy': True}
 
 
