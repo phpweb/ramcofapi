@@ -85,6 +85,7 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
                 # background_tasks.add_task(stop_loss_update, order['price'], signal.ticker_pair.upper())
                 # await stop_loss_update(order['price'], signal.ticker_pair.upper())
                 await task_list(placed_order)
+            print('order is==')
             print(order)
         # print(f'price = {price} balance = {balance}')
         return {
