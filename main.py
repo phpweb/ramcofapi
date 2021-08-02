@@ -46,14 +46,16 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
 
         quantity = utils.calculate_sell_quantity(balance, symbol_info['quantity_step_size'])
 
-    if quantity:
+    if float(quantity) > float(symbol_info['min_notional']):
         # If the side sell then cancel all open orders and st bg tasks
 
         # background_tasks.add_task(cancel_st_tasks_and_open_orders, bn, pair)
         # order = await bn.create_order(pair, signal.side.upper(), 90, 'LIMIT', float(price))
         order = await bn.create_order(pair, signal.side.upper(), quantity, 'LIMIT', float(price))
         # Check the status if it is filled
-        order_status = await bn.query_order(pair, order['orderId'])
+        order_status = None
+        if order is not None:
+            order_status = await bn.query_order(pair, order['orderId'])
         cancel_order = None
         if order_status is not None:
             if order_status['status'] != 'FILLED':
