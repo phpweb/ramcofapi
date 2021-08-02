@@ -52,7 +52,7 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
         # background_tasks.add_task(cancel_st_tasks_and_open_orders, bn, pair)
         # order = await bn.create_order(pair, signal.side.upper(), 90, 'LIMIT', float(price))
         order = await bn.create_order(pair, signal.side.upper(), quantity, 'LIMIT', float(price))
-        # Check the status if it is filled
+        # Check the status if it is filled test
         order_status = None
         if order is not None:
             order_status = await bn.query_order(pair, order['orderId'])
