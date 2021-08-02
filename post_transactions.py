@@ -21,13 +21,15 @@ async def compare_live_percent_change(msg):
     msg = json.loads(msg)
     current_price = msg['p']
     placed_order = redis_client.get_from_cache('placed_order')
-    placed_order = json.loads(placed_order)
-    bought_price = placed_order['price']
-    symbol = placed_order['symbol']
-    print(f'bought_price = {bought_price}, symbol = {symbol}, current_price = {current_price}')
-    # await stop_loss_update(bought_price, symbol, current_price)
-    await stop_loss_only(bought_price, symbol, current_price)
-
+    if placed_order is not None:
+        placed_order = json.loads(placed_order)
+        bought_price = placed_order['price']
+        symbol = placed_order['symbol']
+        print(f'bought_price = {bought_price}, symbol = {symbol}, current_price = {current_price}')
+        # await stop_loss_update(bought_price, symbol, current_price)
+        await stop_loss_only(bought_price, symbol, current_price)
+    else:
+        print('There is no placed order: post_transactions.py line 32')
 
 async def stop_loss_only(bought_price, symbol, current_price):
     percent_var = 0.2
