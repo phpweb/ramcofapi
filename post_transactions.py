@@ -25,7 +25,15 @@ async def compare_live_percent_change(msg):
     bought_price = placed_order['price']
     symbol = placed_order['symbol']
     print(f'bought_price = {bought_price}, symbol = {symbol}, current_price = {current_price}')
-    await stop_loss_update(bought_price, symbol, current_price)
+    # await stop_loss_update(bought_price, symbol, current_price)
+    await stop_loss_only(bought_price, symbol, current_price)
+
+
+async def stop_loss_only(bought_price, symbol, current_price):
+    percent_var = 0.2
+    percent = float(1 - percent_var / 100)
+    stop_price = float(bought_price) * float(percent)
+    await place_stop_loss_order_update(symbol, stop_price)
 
 
 async def stop_loss_update(bought_price, symbol, current_price):
