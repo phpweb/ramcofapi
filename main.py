@@ -31,6 +31,12 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
     ticker_symbol = utils.extract_ticker_symbol_from_pair(pair)
     # if the transaction sell is
     if signal.side.upper() == 'SELL':
+        stop_loss_order_id = redis_client.get_from_cache(f'{pair}_stop_loss_orderId')
+        # take_profit_order_id = redis_client.get_from_cache(f'{pair}_order_limit_maker_orderId')
+        if stop_loss_order_id is not None:
+            stop_loss_cancel = await bn.cancel_order(pair, stop_loss_order_id)
+            if stop_loss_cancel is not None:
+                redis_client.delete_key(f'{pair}_stop_loss_orderId')
         balance_symbol = ticker_symbol
     price, balance = await bn.get_price_and_balance(pair, balance_symbol)
     symbol_info = await get_symbol_info(bn, pair)
@@ -41,17 +47,8 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
         quantity = utils.calculate_quantity(balance, price, symbol_info['quantity_step_size'])
 
     if signal.side.upper() == 'SELL':
-        stop_loss_order_id = redis_client.get_from_cache(f'{pair}_stop_loss_orderId')
-        # take_profit_order_id = redis_client.get_from_cache(f'{pair}_order_limit_maker_orderId')
-        quantity = 0.0
-        if stop_loss_order_id is not None:
-            stop_loss_cancel = await bn.cancel_order(pair, stop_loss_order_id)
-            if stop_loss_cancel is not None:
-                redis_client.delete_key(f'{pair}_stop_loss_orderId')
-                quantity = utils.calculate_sell_quantity(balance, symbol_info['quantity_step_size'])
-        if stop_loss_order_id is None:
-            quantity = utils.calculate_sell_quantity(balance, symbol_info['quantity_step_size'])
-
+        quantity = utils.calculate_sell_quantity(balance, symbol_info['quantity_step_size'])
+    # return {'quantity': quantity}
     min_notional_quantity = float(quantity) * float(price)
     min_notional = float(symbol_info['min_notional'])
     if min_notional_quantity > min_notional:
@@ -269,8 +266,8 @@ async def task_list(data: Optional[models.PlacedOrder] = None, cancel_task=None)
         if cancel_task is not True:
             st_loss_profit_tasks.append(asyncio.create_task(post_trans.watch_live(data)))
     if len(st_loss_profit_tasks) > 0:
-        # await asyncio.gather(*st_loss_profit_tasks, return_exceptions=True)
-        await asyncio.gather(*st_loss_profit_tasks)
+        await asyncio.gather(*st_loss_profit_tasks, return_exceptions=True)
+        # await asyncio.gather(*st_loss_profit_tasks)
 
 
 async def cancel_st_tasks_and_open_orders(pair):
