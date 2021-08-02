@@ -39,9 +39,10 @@ async def place_order(signal: models.Signal, background_tasks: BackgroundTasks):
         quantity = utils.calculate_quantity(balance, price, symbol_info['quantity_step_size'])
 
     if signal.side.upper() == 'SELL':
-        # stop_loss_order_id = redis_client.get_from_cache(f'{pair}_stop_loss_orderId')
+        stop_loss_order_id = redis_client.get_from_cache(f'{pair}_stop_loss_orderId')
         # take_profit_order_id = redis_client.get_from_cache(f'{pair}_order_limit_maker_orderId')
-        # await bn.cancel_order(pair, take_profit_order_id)
+        if stop_loss_order_id is not None:
+            await bn.cancel_order(pair, stop_loss_order_id)
 
         quantity = utils.calculate_sell_quantity(balance, symbol_info['quantity_step_size'])
 
