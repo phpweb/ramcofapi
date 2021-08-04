@@ -114,7 +114,7 @@ async def create_item(signal: models.Signal, background_tasks: BackgroundTasks):
     # return {'dont_buy': True}
 
 
-async def place_order_only_action(signal: models.Signal, background_tasks: BackgroundTasks):
+async def place_order_only_action(signal: models.Signal):
     settings = get_settings()
     bn = bn_client.BinanceClientAsync(api_key=settings.api_key, secret_key=settings.api_secret)
     pair = signal.ticker_pair.upper()
@@ -152,7 +152,7 @@ async def place_order_only_action(signal: models.Signal, background_tasks: Backg
                 await asyncio.sleep(2)
                 cancel_order = await bn.cancel_order(pair, order['orderId'])
                 if cancel_order is not None:
-                    await place_order(signal, background_tasks)
+                    await place_order_only_action(signal)
                     return
             print('order is==')
             print(order)
@@ -169,15 +169,15 @@ async def place_order_only_action(signal: models.Signal, background_tasks: Backg
 
 
 @app.post("/only_action/")
-async def only_action(signal: models.Signal, background_tasks: BackgroundTasks):
+async def only_action(signal: models.Signal):
     settings = get_settings()
     if signal.passphrase != settings.hook_secret:
         return {'no_neo': 'no way'}
-    background_tasks.add_task(place_order_only_action, signal, background_tasks)
-    # order = await place_order(signal, background_tasks)
+    # background_tasks.add_task(place_order_only_action, signal, background_tasks)
+    order = await place_order_only_action(signal)
     return {
         'order': 'has been placed',
-        # 'order_is': order
+        'order_is': order
     }
     # return {'dont_buy': True}
 
