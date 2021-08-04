@@ -114,6 +114,74 @@ async def create_item(signal: models.Signal, background_tasks: BackgroundTasks):
     # return {'dont_buy': True}
 
 
+async def place_order_only_action(signal: models.Signal, background_tasks: BackgroundTasks):
+    settings = get_settings()
+    bn = bn_client.BinanceClientAsync(api_key=settings.api_key, secret_key=settings.api_secret)
+    pair = signal.ticker_pair.upper()
+    # if signal.side.upper() == 'SELL':
+    # await cancel_st_tasks_and_open_orders(bn, pair)
+    # To calculate buy quantity and trade FIAT symbol name.
+    balance_symbol = utils.extract_balance_symbol_from_pair(pair)
+    # To calculate sell quantity.
+    ticker_symbol = utils.extract_ticker_symbol_from_pair(pair)
+    # if the transaction sell is
+    if signal.side.upper() == 'SELL':
+        balance_symbol = ticker_symbol
+    price, balance = await bn.get_price_and_balance(pair, balance_symbol)
+    symbol_info = await get_symbol_info(bn, pair)
+    # For testing
+    quantity = 0.0
+    if signal.side.upper() == 'BUY':
+        quantity = utils.calculate_quantity(balance, price, symbol_info['quantity_step_size'])
+
+    if signal.side.upper() == 'SELL':
+        quantity = utils.calculate_sell_quantity(balance, symbol_info['quantity_step_size'])
+    # return {'quantity': quantity}
+    min_notional_quantity = float(quantity) * float(price)
+    min_notional = float(symbol_info['min_notional'])
+    if min_notional_quantity > min_notional:
+        order = await bn.create_order(pair, signal.side.upper(), quantity, 'LIMIT', float(price))
+        # Check the status if it is filled test
+        order_status = None
+        if order is not None:
+            order_status = await bn.query_order(pair, order['orderId'])
+        cancel_order = None
+        if order_status is not None:
+            if order_status['status'] != 'FILLED':
+                # Wait 2 seconds
+                await asyncio.sleep(2)
+                cancel_order = await bn.cancel_order(pair, order['orderId'])
+                if cancel_order is not None:
+                    await place_order(signal, background_tasks)
+                    return
+            print('order is==')
+            print(order)
+        # print(f'price = {price} balance = {balance}')
+        return {
+            'price': price,
+            'balance': balance,
+            'order': order,
+            'cancel_order': cancel_order
+        }
+    else:
+        print(f'min_notional qty {min_notional_quantity} is less then {min_notional}')
+        return {'min_notional': 'Not enough quantity'}
+
+
+@app.post("/only_action/")
+async def only_action(signal: models.Signal, background_tasks: BackgroundTasks):
+    settings = get_settings()
+    if signal.passphrase != settings.hook_secret:
+        return {'no_neo': 'no way'}
+    background_tasks.add_task(place_order_only_action, signal, background_tasks)
+    # order = await place_order(signal, background_tasks)
+    return {
+        'order': 'has been placed',
+        # 'order_is': order
+    }
+    # return {'dont_buy': True}
+
+
 async def get_symbol_info(bn, pair):
     await bn.open()
     symbol_info_from_redis = redis_client.get_from_cache(f'symbol_info_{pair}')
